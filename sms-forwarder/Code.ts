@@ -10,8 +10,6 @@ interface MessageParser {
   (from: string, content: string): GChatMessage | void
 }
 
-const parsers = new Map<string, MessageParser>()
-
 const DefaultParser: MessageParser = (from, content) => keyValCard({
   topLabel: from,
   content: content,
@@ -19,12 +17,14 @@ const DefaultParser: MessageParser = (from, content) => keyValCard({
   icon: 'EMAIL'
 })
 
-// PWC 2FA Tokens
-parsers.set('61427046424', (from, content) => {
+const parsers: { [from: string]: MessageParser } = {}
+
+// PwC 2FA tokens
+parsers['61427046424'] = (from, content) => {
   // Something is very broken in either the SMS provider, or PwC's message
   // generation. We currently received a multipart message for 2FA tokens, with
   // the second part being useless.
-  if (content.startsWith("[2/2] ___________________")) {
+  if (content.indexOf("[2/2] ___________________") > -1) {
     return
   }
 
@@ -39,17 +39,17 @@ parsers.set('61427046424', (from, content) => {
   }
 
   return DefaultParser(from, content)
-})
+}
 
 
 // ----------------------------------------------------------------------------
 // Internals - probably no need to touch things below here
 
 
-const property = PropertiesService.getScriptProperties().getProperty
+const properties = PropertiesService.getScriptProperties()
 
-const GCHAT_WEBHOOK = property('GCHAT_WEBHOOK')
-const SMS_NUMBER = property('SMS_NUMBER')
+const GCHAT_WEBHOOK = properties.getProperty('GCHAT_WEBHOOK')
+const SMS_NUMBER = properties.getProperty('SMS_NUMBER')
 
 
 // Plain text post
@@ -117,7 +117,7 @@ function doGet(e) {
     return ContentService.createTextOutput('Unknown number, ignored.')
   }
 
-  const parser = parsers.get(from) || DefaultParser
+  const parser = parsers[from] || DefaultParser
 
   const gchatMessage = parser(from, message)
 
